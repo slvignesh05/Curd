@@ -1,0 +1,13 @@
+<!doctype html>
+<script>
+const exec = (args) => fetch("http://127.0.0.1:4848/api/exec", {
+  method: "POST",
+  headers: { "Content-Type": "text/plain" },  // simple CORS, no preflight
+  body: JSON.stringify({ args })
+}).then(r => r.text()).then(console.log).catch(console.error);
+
+// Benign test: just print version info
+exec(["--version"]);
+// Benign test: list sessions
+exec(["sessions", "list"]);
+</script>
